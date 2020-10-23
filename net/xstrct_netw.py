@@ -279,13 +279,7 @@ def run_net(tr):
 
     if tr.scl_active:
         synEE_mod = '''%s
-<<<<<<< HEAD
-                       %s''' % (synEE_mod, tr.synEE_scl_mod)
-        synEI_mod = '''%s
-                       %s''' % (synEI_mod, tr.synEI_scl_mod)
-=======
                        %s''' %(synEE_mod, tr.synEE_scl_mod)
->>>>>>> master
 
         if tr.scl_mode == "proportional":
             synEE_mod += f"\n{tr.synEE_scl_prop_mod}"
