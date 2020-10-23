@@ -91,6 +91,8 @@ taupost = 30*ms
 Aplus = 0.0015
 Aminus = -0.00075
 amax = 2.0
+amin = 0.0
+""" Minimal value for synapses, applied on STDP & scaling events. """
 
 
 external_mode = 'memnoise'

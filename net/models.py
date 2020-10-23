@@ -163,7 +163,7 @@ synEI_pre_sym_biexp = '''
                        '''
 
 syn_pre_STDP = '''
-                 a = syn_active*clip(a+Apost*stdp_active, 0, amax)
+                 a = syn_active*clip(a+Apost*stdp_active, amin, amax)
                  '''
 
 synEE_pre_rec = '''
@@ -183,7 +183,7 @@ synEI_post_sym = '''
                  '''
 
 syn_post_STDP = '''
-                a = syn_active*clip(a+Apre*stdp_active, 0, amax)
+                a = syn_active*clip(a+Apre*stdp_active, amin, amax)
                 '''
 
 synEE_post_rec = '''
@@ -195,11 +195,11 @@ synEI_post_rec = '''
                  '''
 
 synEE_scaling = '''
-                a = syn_active*syn_scale(a, ANormTar, AsumEE_post, eta_scaling, t, syn_active, scl_rec_start, scl_rec_max, i, j)
+                a = syn_active*clip(syn_scale(a, ANormTar, AsumEE_post, eta_scaling, t, syn_active, scl_rec_start, scl_rec_max, i, j), amin, amax)
                 '''
 
 synEI_scaling = '''
-                a = syn_active*syn_EI_scale(a, iANormTar, AsumEI_post, eta_scaling, t, syn_active, scl_rec_start, scl_rec_max, i, j)
+                a = syn_active*clip(syn_EI_scale(a, iANormTar, AsumEI_post, eta_scaling, t, syn_active, scl_rec_start, scl_rec_max, i, j), amin, amax)
                 '''
 
 # rand() == uniform(0,1)
