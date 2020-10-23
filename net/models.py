@@ -1,4 +1,3 @@
-
 condlif_poisson = '''
               dV/dt = (El-V + (gfwd+ge)*(Ee-V) + gi*(Ei-V))/tau : volt
               Vt : volt 
@@ -12,7 +11,6 @@ condlif_poisson = '''
               ANormTar : 1
               iANormTar : 1
               '''
-
 
 condlif_memnoise = '''
               dV/dt = (El-V + ge*(Ee-V) + gi*(Ei-V))/tau +  mu/tau + (sigma * xi) / (tau **.5) : volt
@@ -57,8 +55,6 @@ syn_cond_EI_biexp = '''
                     dxgi/dt = -xgi/tau_i                   : 1
                     '''
 
-
-
 # refractory period???
 
 nrnEE_thrshld = 'V > Vt'
@@ -72,14 +68,13 @@ poisson_mod = 'PInp_a : 1'
 # dApost /dt = -Apost/taupost : 1 (event-driven)
 
 synEE_static = 'a : 1'
-synEE_noise_add   = '''da/dt = syn_noise_active*syn_active*syn_sigma**0.5*xi : 1
+synEE_noise_add = '''da/dt = syn_noise_active*syn_active*syn_sigma**0.5*xi : 1
                        syn_sigma : 1/second (shared)'''
 
-synEE_noise_mult  = '''da/dt = syn_noise_active*syn_active*a*syn_sigma**0.5*xi : 1
+synEE_noise_mult = '''da/dt = syn_noise_active*syn_active*a*syn_sigma**0.5*xi : 1
                        syn_sigma : 1/second (shared)'''
 synEE_noise_kesten = '''da/dt = syn_noise_active*syn_active * ( (syn_kesten_mu_epsilon_1 * (syn_kesten_factor*a) + syn_kesten_mu_eta) + (syn_kesten_var_epsilon_1 * (syn_kesten_factor*a)**2 + syn_kesten_var_eta)**0.5 * xi_kesten) / syn_kesten_factor : 1
                         '''
-
 
 synEE_mod = '''            
             syn_active : integer
@@ -111,14 +106,13 @@ synEI_scl_prop_mod = 'iANormTar_post = syn_active*iATotalMaxSingle : 1 (summed)'
 synEE_nostd_mod = 'D : 1'
 synEE_std_mod = 'dD/dt = (1 - D)/tau_std : 1 (event-driven)'
 
-
 synEE_p_activate = '''
                    r = rand()
                    syn_active = int(r < p_ee)
                    a = syn_active*a
                    '''
 
-synEE_pre_exp   = '''
+synEE_pre_exp = '''
                   ge_post += D*syn_active*a
                   Apre = syn_active*Aplus
                   '''
@@ -135,8 +129,7 @@ synEE_pre_biexp = '''
 
 synEE_pre_std = '''D *= std_d'''
 
-
-synEI_pre_exp   = '''
+synEI_pre_exp = '''
                   gi_post += syn_active*a
                   Apre = syn_active*Aplus
                   '''
@@ -151,8 +144,7 @@ synEI_pre_biexp = '''
                   Apre = syn_active*Aplus
                   '''
 
-
-synEI_pre_sym_exp   = '''
+synEI_pre_sym_exp = '''
                       gi_post += syn_active*a
                       Apre = syn_active*Aplus
                       a = a - stdp_active*LTD_a
@@ -170,7 +162,6 @@ synEI_pre_sym_biexp = '''
                        a = a - stdp_active*LTD_a
                        '''
 
-
 syn_pre_STDP = '''
                  a = syn_active*clip(a+Apost*stdp_active, 0, amax)
                  '''
@@ -183,7 +174,6 @@ synEI_pre_rec = '''
                 dummy = record_spk_EI(t, i, j, a, Apre, Apost, syn_active, 0, stdp_rec_start, stdp_rec_max)
                 '''
 
-
 syn_post = '''
            Apost = syn_active*Aminus
            '''
@@ -191,7 +181,6 @@ syn_post = '''
 synEI_post_sym = '''
                  Apost = syn_active*Aplus
                  '''
-
 
 syn_post_STDP = '''
                 a = syn_active*clip(a+Apre*stdp_active, 0, amax)
@@ -205,7 +194,6 @@ synEI_post_rec = '''
                  dummy = record_spk_EI(t, i, j, a, Apre, Apost, syn_active, 1, stdp_rec_start, stdp_rec_max)
                  '''
 
-
 synEE_scaling = '''
                 a = syn_active*syn_scale(a, ANormTar, AsumEE_post, eta_scaling, t, syn_active, scl_rec_start, scl_rec_max, i, j)
                 '''
@@ -214,9 +202,8 @@ synEI_scaling = '''
                 a = syn_active*syn_EI_scale(a, iANormTar, AsumEI_post, eta_scaling, t, syn_active, scl_rec_start, scl_rec_max, i, j)
                 '''
 
-
 # rand() == uniform(0,1)
-#strct_mod = ''
+# strct_mod = ''
 
 strct_mod_thrs = '''
                  r = rand()
@@ -237,7 +224,6 @@ turnoverEI_rec_mod = '''
                    dummy = record_turnover_EI(t, was_active_before, should_become_active, should_stay_active, syn_active, i, j)
                    '''
 
-
 # zero mode
 strct_mod = '''
             r = rand()
@@ -250,3 +236,9 @@ strct_mod = '''
             a = a*int(was_active_before==1)*int(syn_active==1) \
                 + a_insert*int(was_active_before==0)*int(syn_active==1)
             '''
+
+# 2D plane for distance-dependent connectivity
+ddcon = '''
+            x : metre 
+            y : metre
+        '''
