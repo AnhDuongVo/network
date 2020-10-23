@@ -1,6 +1,5 @@
 
 import numpy as np
-from numpy.random import default_rng
 
 
 def generate_connections(N_tar, N_src, p, same=False):
@@ -74,36 +73,46 @@ def generate_full_connectivity(Nsrc, Ntar=0, same=True):
         return np.array(i), np.array(j)
 
 
-# IP added
-# util methods for distance dependent connectivity
+# distance dependent connectivity methods
 def gaussian(x, u, s):
-    # g = (2/np.sqrt(2*np.pi*s*s))*np.exp(-(x-u)*(x-u)/(2*s*s))  # gaussian used in Miner paper
-    g = np.exp(-(x - u) * (x - u) / (2 * s * s))
+    # g = (2/np.sqrt(2*np.pi*s*s))*np.exp(-(x-u)*(x-u)/(2*s*s))  # gaussian
+    g = np.exp(-(x - u) * (x - u) / (2 * s * s))  # simpler gaussian
     return g
 
 
 def make_grid(grid_size: int, n_neurons: int) -> np.ndarray:
     """
-    Randomly populate square-shaped grid with neurons.
+    Randomly populate square-shaped grid with neurons. Can be used when
+    neuron model doesn't include topology.
 
     :param grid_size: grid side length in microns
     :param n_neurons: number of neurons to populate
 
     :return: 2d array with neurons coordinates
     """
-    # todo use rand or random_integer?
-    # todo handle case when neurons have the same position? Or super close position in case od rand?
-    # return np.random.random_integers(0, grid_size, (n_neurons, 2))
-    # return default_rng().integers(0, grid_size, endpoint=True)
+    # todo use rand or random_integer? - doesn't matter
+    # todo handle case when neurons have the same position? Or super close position in case od rand? - don't care
     return grid_size * np.random.rand(n_neurons, 2)
 
 
+# todo boundary conditions, toroidal plane?
 def generate_dd_connectivity(tar_x, tar_y, src_x, src_y, g_halfwidth, same=True):
-    # calculate connection matrix and indexes arrays
+    """
+    Generates ordered source/target indexes arrays.
+    Self-connections and multiple connections between one target-source paar are omitted.
+    Implementation is based on Miner(2016).
+
+    :param tar_x: target pool x coordinates array (unitless)
+    :param tar_y: target pool y coordinates array (unitless)
+    :param src_x: source pool x coordinates array (unitless)
+    :param src_y: source pool x coordinates array (unitless)
+    :param g_halfwidth: gaussian half-width (microns)
+    :param same: True is source and target pools are the same, False otherwise
+    :return: source and target indexes arrays.
+    """
+    # calculate gaussian
     n_tar = np.size(tar_x)
-    # print('n_tar '+str(n_tar))
     n_src = np.size(src_x)
-    # print('n_src '+str(n_src))
     p_ = np.zeros((n_src, n_tar))
     for i in range(n_src):
         for j in range(n_tar):
@@ -112,21 +121,21 @@ def generate_dd_connectivity(tar_x, tar_y, src_x, src_y, g_halfwidth, same=True)
                 dy = tar_y[j] - src_y[i]
                 p_[i, j] = gaussian(np.sqrt(dx ** 2 + dy ** 2), 0, np.array(g_halfwidth))
 
+    # calculate connections matrix and indexes arrays
     conn = np.zeros((n_src, n_tar))  # connectivity matrix
     in_src = []  # list with source indexes
     in_trg = []  # list with target indexes
     nums = np.random.uniform(size=n_src*n_tar)
-    # print('nums array size '+str(np.size(nums)))
     for i in range(n_src):
         for j in range(n_tar):
             if nums[i*(n_tar-1) + j] < p_[i, j]:
                 in_src.append(i)
                 in_trg.append(j)
                 conn[i, j] = 1  # just indicate a connection, no weight set
-    # print('in_src/in_trg size '+str(np.size(in_src)))
     return in_src, in_trg
 
 
+# todo deprecated, remove later
 def generate_dd_connectivity2(n_src):
     """
     :param n_src:
@@ -156,38 +165,3 @@ def generate_dd_connectivity2(n_src):
                 in_trg.append(j)
                 conn[i, j] = 1  # just indicate a connection, no weight set
     return in_src, in_trg
-
-
-def generate_dd_connectivity3(n_src, n_tar, xy):
-    """
-
-    :param xy:
-    :param n_tar:
-    :param n_src:
-    :return:
-    """
-    # set parameters
-    # grid = 1000  # um
-    # xy = 1000 * np.random.rand(n_src, 2)
-
-    # calculate connection matrix and indexes arrays
-    # n_tar = n_src
-    p_ = np.zeros((n_src, n_tar))
-    for i in range(n_src):
-        for j in range(n_tar):
-            if not (i == j):
-                dx = xy[i, 0] - xy[j, 0]
-                dy = xy[i, 1] - xy[j, 1]
-                p_[i, j] = gaussian(np.sqrt(dx ** 2 + dy ** 2), 0, 200)  # half-width 20um
-
-    conn = np.zeros((n_src, n_tar))  # connectivity matrix
-    in_src = []  # list with source indexes
-    in_trg = []  # list with target indexes
-    for i in range(n_src):
-        for j in range(n_tar):
-            if np.random.rand() < p_[i, j]:
-                in_src.append(i)
-                in_trg.append(j)
-                conn[i, j] = 1  # just indicate a connection, no weight set
-    return in_src, in_trg
-
