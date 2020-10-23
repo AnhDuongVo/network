@@ -191,6 +191,12 @@ def add_params(tr):
     tr.f_add_parameter('netw.config.strct_mode', prm.strct_mode)
     tr.f_add_parameter('netw.rec.turnover_rec', prm.turnover_rec)
 
+    # distance-dependent connectivity
+    tr.f_add_parameter('netw.config.ddcon_active', prm.ddcon_active)
+    tr.f_add_parameter('netw.grid_size', prm.grid_size)
+    tr.f_add_parameter('netw.half_width', prm.half_width)
+    tr.f_add_parameter('netw.mod.ddcon', mod.ddcon)
+
     # recording
     tr.f_add_parameter('netw.rec.memtraces_rec', prm.memtraces_rec)
     tr.f_add_parameter('netw.rec.vttraces_rec', prm.vttraces_rec)

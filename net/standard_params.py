@@ -264,6 +264,19 @@ n_threads = 1
 # neuron_method = 'euler'
 # synEE_method = 'euler'
 
+# distance-dependent connectivity
+"""
+Implemented as described in Miner et al (2016)
+"""
+ddcon_active = 0
+"""enable/disable distance-dependent connectivity"""
+grid_size = 1000*um
+"""side length of the square-shaped plane"""
+half_width = 200*um
+"""half-width in gaussian probability density function, see Miner et al (2016) for 
+an explanation why 200um is a good value"""
+
+
 # recording
 memtraces_rec = 1
 vttraces_rec = 1

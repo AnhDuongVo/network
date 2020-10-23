@@ -3,12 +3,12 @@ import sys, os, shutil, pickle, neo, scipy
 
 from . import models as mod
 from .utils import generate_connections, generate_full_connectivity, \
-                   generate_N_connections
+                   generate_N_connections, generate_dd_connectivity
 
 import numpy as np
 import pypet
 
-from brian2.units import ms,mV,second,Hz
+from brian2.units import ms,mV,second,Hz, metre
 from pypet.brian2.parameter import Brian2MonitorResult
 
 from brian2 import NeuronGroup, StateMonitor, SpikeMonitor, run, \
@@ -29,7 +29,8 @@ from .cpp_methods import syn_scale, syn_EI_scale, \
 
 from . import workarounds
 
-def init_synapses(syn_type: str, tr: pypet.trajectory.Trajectory):
+# todo ddcon added numb_syn
+def init_synapses(syn_type: str, tr: pypet.trajectory.Trajectory, numb_syn: int):
     """ Initialize synapses with weights and whether they are active or not
 
     ``tr.weight_mode`` is used to choose whether to ``init`` or ``load``.
@@ -44,20 +45,33 @@ def init_synapses(syn_type: str, tr: pypet.trajectory.Trajectory):
 
         if syn_type=="EE":
             # make randomly chosen synapses active at beginning
-            rs = np.random.uniform(size=tr.N_e*(tr.N_e-1))
-            initial_active = (rs < tr.p_ee).astype('int')
-            initial_weights = initial_active * tr.a_ee
-            
-        elif syn_type=="EI":
-
-            if tr.istdp_active and tr.istrct_active:
-                rs = np.random.uniform(size=tr.N_i*tr.N_e)
-                initial_active = (rs < tr.p_ei).astype('int')
-                initial_weights = initial_active * tr.a_ei
-
+            # todo ddcon this is a temp solution, if ddcon is on all generated connections are set to active,
+            # p_ee is not considered, this will work for ee struct plast off
+            if tr.ddcon_active:
+                rs = np.random.uniform(size=numb_syn)
+                initial_active = (rs < tr.p_ee).astype('int')
+                initial_weights = initial_active * tr.a_ee
+                # initial_active = 1
+                # initial_weights = tr.a_ee
             else:
+                rs = np.random.uniform(size=tr.N_e*(tr.N_e-1))
+                initial_active = (rs < tr.p_ee).astype('int')
+                initial_weights = initial_active * tr.a_ee
+
+        elif syn_type=="EI":
+            # todo add ddcon
+            if tr.ddcon_active:
                 initial_active = 1
                 initial_weights = tr.a_ei
+            else:
+                if tr.istdp_active and tr.istrct_active:
+                    rs = np.random.uniform(size=tr.N_i*tr.N_e)
+                    initial_active = (rs < tr.p_ei).astype('int')
+                    initial_weights = initial_active * tr.a_ei
+
+                else:
+                    initial_active = 1
+                    initial_weights = tr.a_ei
         else:
             raise Exception(f"invalid syn_type {syn_type}")
 
@@ -141,6 +155,11 @@ def run_net(tr):
             (tr.tau_i_rise / (tr.tau_i - tr.tau_i_rise))
         print("Using EI biexp mode")
 
+    # ddcon space is added to both inh and exc populations
+    if tr.ddcon_active:
+        neuron_model += tr.ddcon
+
+    print("Neuron model is: ", neuron_model)  # TODO IP debug output, remove later
 
     GExc = NeuronGroup(N=tr.N_e, model=neuron_model,
                        threshold=tr.nrnEE_thrshld,
@@ -163,6 +182,19 @@ def run_net(tr):
                                          size=tr.N_e)*mV, \
                        np.random.uniform(tr.Vr_i/mV, tr.Vt_i/mV,
                                          size=tr.N_i)*mV
+
+    # ddcon init
+    # TODO think about boundary conditions
+    if tr.ddcon_active:
+        GExc.x, GExc.y = np.random.uniform(high=tr.grid_size, size=tr.N_e)*metre, \
+                         np.random.uniform(high=tr.grid_size, size=tr.N_e)*metre
+        GInh.x, GInh.y = np.random.uniform(high=tr.grid_size, size=tr.N_i)*metre, \
+                         np.random.uniform(high=tr.grid_size, size=tr.N_i)*metre,
+        # save neuron positions for debug
+        tr.f_add_result('GExc_x', np.array(GExc.x))
+        tr.f_add_result('GExc_y', np.array(GExc.y))
+        tr.f_add_result('GInh_x', np.array(GInh.x))
+        tr.f_add_result('GInh_y', np.array(GInh.y))
 
     netw_objects.extend([GExc,GInh])
 
@@ -365,40 +397,54 @@ def run_net(tr):
     SynII = Synapses(target=GInh, source=GInh, on_pre='gi_post += a_ii',
                      namespace=namespace)
 
-        
-    sEE_src, sEE_tar = generate_full_connectivity(tr.N_e, same=True)
+
+    # generate connectivity
+    if tr.ddcon_active:
+        sEE_src, sEE_tar = generate_dd_connectivity(np.array(GExc.x), np.array(GExc.y),
+                                                    np.array(GExc.x), np.array(GExc.y), tr.half_width)
+        # SynEE.connect(condition='i!=j', p='exp(-((x_pre-x_post)**2+(y_pre-y_post)**2)/(2*(200.0*um)**2))')
+    else:
+        sEE_src, sEE_tar = generate_full_connectivity(tr.N_e, same=True)
     SynEE.connect(i=sEE_src, j=sEE_tar)
     SynEE.syn_active = 0
     SynEE.taupre, SynEE.taupost = tr.taupre, tr.taupost
     workarounds.synapse_resolve_dt_correctly(SynEE)
 
-    if tr.istdp_active and tr.istrct_active:
-        print('istrct active')
-        sEI_src, sEI_tar = generate_full_connectivity(Nsrc=tr.N_i,
-                                                      Ntar=tr.N_e,
-                                                      same=False)
+    # TODO ddcon
+    if tr.ddcon_active:
+        # this case works for istrct_active on and off
+        sEI_src, sEI_tar = generate_dd_connectivity(np.array(GExc.x), np.array(GExc.y),
+                                                    np.array(GInh.x), np.array(GInh.y), tr.half_width, same=False)
         SynEI.connect(i=sEI_src, j=sEI_tar)
         SynEI.syn_active = 0
 
     else:
-        print('istrct not active')
-        if tr.weight_mode=='init':
-            sEI_src, sEI_tar = generate_connections(tr.N_e, tr.N_i, tr.p_ei)
-            # print('Index Zero will not get inhibition')
-            # sEI_src, sEI_tar = np.array(sEI_src), np.array(sEI_tar)
-            # sEI_src, sEI_tar = sEI_src[sEI_tar > 0],sEI_tar[sEI_tar > 0]
+        if tr.istdp_active and tr.istrct_active:
+            print('istrct active')
+            sEI_src, sEI_tar = generate_full_connectivity(Nsrc=tr.N_i,
+                                                          Ntar=tr.N_e,
+                                                          same=False)
+            SynEI.connect(i=sEI_src, j=sEI_tar)
+            SynEI.syn_active = 0
 
-        elif tr.weight_mode=='load':
-            
-            fpath = os.path.join(tr.basepath, tr.weight_path)
-        
-            with open(fpath+'synei_a.p', 'rb') as pfile:
-                synei_a_init = pickle.load(pfile)
+        else:
+            print('istrct not active')
+            if tr.weight_mode=='init':
+                sEI_src, sEI_tar = generate_connections(tr.N_e, tr.N_i, tr.p_ei)
+                # print('Index Zero will not get inhibition')
+                # sEI_src, sEI_tar = np.array(sEI_src), np.array(sEI_tar)
+                # sEI_src, sEI_tar = sEI_src[sEI_tar > 0],sEI_tar[sEI_tar > 0]
 
-            sEI_src, sEI_tar = synei_a_init['i'], synei_a_init['j']
+            elif tr.weight_mode=='load':
 
-            
-        SynEI.connect(i=sEI_src, j=sEI_tar)
+                fpath = os.path.join(tr.basepath, tr.weight_path)
+
+                with open(fpath+'synei_a.p', 'rb') as pfile:
+                    synei_a_init = pickle.load(pfile)
+
+                sEI_src, sEI_tar = synei_a_init['i'], synei_a_init['j']
+
+            SynEI.connect(i=sEI_src, j=sEI_tar)
 
 
     if tr.istdp_active:        
@@ -406,10 +452,18 @@ def run_net(tr):
 
     workarounds.synapse_resolve_dt_correctly(SynEI)
 
-        
-    sIE_src, sIE_tar = generate_connections(tr.N_i, tr.N_e, tr.p_ie)
-    sII_src, sII_tar = generate_connections(tr.N_i, tr.N_i, tr.p_ii,
-                                            same=True)
+
+    # TODO ddcon
+    # sIE_src, sIE_tar = generate_connections(tr.N_i, tr.N_e, tr.p_ie)
+    # sII_src, sII_tar = generate_connections(tr.N_i, tr.N_i, tr.p_ii, same=True)
+    sIE_src, sIE_tar = generate_dd_connectivity(np.array(GInh.x), np.array(GInh.y),
+                                                np.array(GExc.x), np.array(GExc.y),
+                                                tr.half_width, same=False) if tr.ddcon_active \
+        else generate_connections(tr.N_i, tr.N_e, tr.p_ie)
+    sII_src, sII_tar = generate_dd_connectivity(np.array(GInh.x), np.array(GInh.y),
+                                                np.array(GInh.x), np.array(GInh.y),
+                                                tr.half_width) if tr.ddcon_active \
+        else generate_connections(tr.N_i, tr.N_i, tr.p_ii, same=True)
 
     SynIE.connect(i=sIE_src, j=sIE_tar)
     SynII.connect(i=sII_src, j=sII_tar)
@@ -451,8 +505,8 @@ def run_net(tr):
     SynEE.syn_noise_active = 1
 
     # we use these variables later for initializing ANormTar/iANormTar if scaling mode is proportional
-    syn_EE_active_init, syn_EE_weights_init = init_synapses('EE', tr)
-    syn_EI_active_init, syn_EI_weights_init = init_synapses('EI', tr)
+    syn_EE_active_init, syn_EE_weights_init = init_synapses('EE', tr, len(sEE_src))
+    syn_EI_active_init, syn_EI_weights_init = init_synapses('EI', tr, len(sEI_src))
     SynEE.syn_active, SynEE.a = syn_EE_active_init, syn_EE_weights_init
     SynEI.syn_active, SynEI.a = syn_EI_active_init, syn_EI_weights_init
 
@@ -597,8 +651,11 @@ def run_net(tr):
                               model=sum_model, dt=tr.csample_dt,
                               name='get_active_synapse_count')
     sum_connection.connect()
-    sum_connection.NSyn = tr.N_e * (tr.N_e-1)  # maximum number of EE synapses
-    
+    if tr.ddcon_active:
+        sum_connection.NSyn = len(sEE_src)  # todo ddcon max number of EE synapses
+    else:
+        sum_connection.NSyn = tr.N_e * (tr.N_e-1)  # maximum number of EE synapses
+
 
     if tr.adjust_insertP:
         # homeostatically adjust growth rate
@@ -624,7 +681,10 @@ def run_net(tr):
                                      model=sum_model_EI, dt=tr.csample_dt,
                                      name='get_active_synapse_count_EI')
         sum_connection_EI.connect()
-        sum_connection_EI.NSyn = tr.N_e * tr.N_i
+        if tr.ddcon_active:
+            sum_connection_EI.NSyn = len(sEI_src)  # todo ddcon max number of EI synapses
+        else:
+            sum_connection_EI.NSyn = tr.N_e * tr.N_i
 
 
 
@@ -749,10 +809,15 @@ def run_net(tr):
             SynEE_a_dt''' % (estm_nrecs, tr.synee_a_nrecpoints))
 
             SynEE_a_dt = T/tr.synee_a_nrecpoints
-        
-        
-    SynEE_a = StateMonitor(SynEE, ['a','syn_active'],
-                           record=range(tr.N_e*(tr.N_e-1)),
+
+
+    # todo ddcon record only created synapses
+    if tr.ddcon_active:
+        record_range_ee = range(len(sEE_src))
+    else:
+        record_range_ee = range(tr.N_e * (tr.N_e - 1))
+    SynEE_a = StateMonitor(SynEE, ['a', 'syn_active'],
+                           record=record_range_ee,
                            dt=SynEE_a_dt,
                            when='end', order=100)
 
@@ -788,8 +853,9 @@ def run_net(tr):
 
     if (tr.synEEdynrec and
         (2*tr.syndynrec_npts*tr.syndynrec_dt < tr.sim.T2) ):
+        # todo ddcon changed range
         SynEE_dynrec = StateMonitor(SynEE, ['a'],
-                                    record=range(tr.N_e*(tr.N_e-1)),
+                                    record=record_range_ee,
                                     dt=tr.syndynrec_dt,
                                     name='SynEE_dynrec',
                                     when='end', order=100)

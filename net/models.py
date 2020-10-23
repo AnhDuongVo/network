@@ -250,3 +250,9 @@ strct_mod = '''
             a = a*int(was_active_before==1)*int(syn_active==1) \
                 + a_insert*int(was_active_before==0)*int(syn_active==1)
             '''
+
+# 2D plane for distance-dependent connectivity
+ddcon = '''
+            x : metre 
+            y : metre
+        '''
