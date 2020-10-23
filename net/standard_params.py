@@ -266,7 +266,8 @@ n_threads = 1
 
 # distance-dependent connectivity
 """
-Implemented as described in Miner et al (2016)
+Implemented as described in Miner et al (2016). ddcon can be enabled/disabled for all model,
+there is no possibility to enable it only for specific synapse type. 
 """
 ddcon_active = 0
 """enable/disable distance-dependent connectivity"""

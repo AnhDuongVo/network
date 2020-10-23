@@ -27,14 +27,16 @@ from .cpp_methods import syn_scale, syn_EI_scale, \
     record_spk, record_spk_EI
 
 
-# todo ddcon added numb_syn
+# todo ddcon changes done here
 def init_synapses(syn_type: str, tr: pypet.trajectory.Trajectory, numb_syn: int):
     """ Initialize synapses with weights and whether they are active or not
 
     ``tr.weight_mode`` is used to choose whether to ``init`` or ``load``.
 
     :param syn_type: "EE" or "EI"
-    :param tr:
+    :param tr: pypet trajectory
+    :param numb_syn: number of synapses in the available connection pool. This parameter was added for ddcon, before
+    N_e*(N_e-1) was used for SynEE
     :return: (initial_active, initial_weights) arrays with active (0 or 1)
              and weights (0 if inactive, ``tr.a_ee`` otherwise)
     """
@@ -43,33 +45,25 @@ def init_synapses(syn_type: str, tr: pypet.trajectory.Trajectory, numb_syn: int)
 
         if syn_type == "EE":
             # make randomly chosen synapses active at beginning
-            # todo ddcon this is a temp solution, if ddcon is on all generated connections are set to active,
-            # p_ee is not considered, this will work for ee struct plast off
             if tr.ddcon_active:
                 rs = np.random.uniform(size=numb_syn)
-                initial_active = (rs < tr.p_ee).astype('int')
-                initial_weights = initial_active * tr.a_ee
-                # initial_active = 1
-                # initial_weights = tr.a_ee
             else:
                 rs = np.random.uniform(size=tr.N_e * (tr.N_e - 1))
-                initial_active = (rs < tr.p_ee).astype('int')
-                initial_weights = initial_active * tr.a_ee
+            initial_active = (rs < tr.p_ee).astype('int')
+            initial_weights = initial_active * tr.a_ee
 
         elif syn_type == "EI":
-            # todo add ddcon
-            if tr.ddcon_active:
+            if tr.istdp_active and tr.istrct_active:
+                if tr.ddcon_active:
+                    rs = np.random.uniform(size=numb_syn)
+                else:
+                    rs = np.random.uniform(size=tr.N_i * tr.N_e)
+                initial_active = (rs < tr.p_ei).astype('int')
+                initial_weights = initial_active * tr.a_ei
+
+            else:
                 initial_active = 1
                 initial_weights = tr.a_ei
-            else:
-                if tr.istdp_active and tr.istrct_active:
-                    rs = np.random.uniform(size=tr.N_i * tr.N_e)
-                    initial_active = (rs < tr.p_ei).astype('int')
-                    initial_weights = initial_active * tr.a_ei
-
-                else:
-                    initial_active = 1
-                    initial_weights = tr.a_ei
         else:
             raise Exception(f"invalid syn_type {syn_type}")
 
@@ -152,11 +146,11 @@ def run_net(tr):
                                  (tr.tau_i_rise / (tr.tau_i - tr.tau_i_rise))
         print("Using EI biexp mode")
 
-    # ddcon space is added to both inh and exc populations
+    # todo ddcon changes done here
     if tr.ddcon_active:
         neuron_model += tr.ddcon
 
-    print("Neuron model is: ", neuron_model)  # TODO IP debug output, remove later
+    print("Neuron model is: ", neuron_model)  # todo IP debug output, remove later
 
     GExc = NeuronGroup(N=tr.N_e, model=neuron_model,
                        threshold=tr.nrnEE_thrshld,
@@ -179,8 +173,7 @@ def run_net(tr):
                      np.random.uniform(tr.Vr_i / mV, tr.Vt_i / mV,
                                        size=tr.N_i) * mV
 
-    # ddcon init
-    # TODO think about boundary conditions
+    # todo ddcon changes done here
     if tr.ddcon_active:
         GExc.x, GExc.y = np.random.uniform(high=tr.grid_size, size=tr.N_e)*metre, \
                          np.random.uniform(high=tr.grid_size, size=tr.N_e)*metre
@@ -378,10 +371,11 @@ def run_net(tr):
     SynII = Synapses(target=GInh, source=GInh, on_pre='gi_post += a_ii',
                      namespace=namespace)
 
-    # generate connectivity
+    # todo ddcon changes done here
     if tr.ddcon_active:
         sEE_src, sEE_tar = generate_dd_connectivity(np.array(GExc.x), np.array(GExc.y),
                                                     np.array(GExc.x), np.array(GExc.y), tr.half_width)
+        # todo ddcon brian2 style can be used as well, need to figure out nice way to get source/target array from it
         # SynEE.connect(condition='i!=j', p='exp(-((x_pre-x_post)**2+(y_pre-y_post)**2)/(2*(200.0*um)**2))')
     else:
         sEE_src, sEE_tar = generate_full_connectivity(tr.N_e, same=True)
@@ -390,7 +384,7 @@ def run_net(tr):
     SynEE.syn_active = 0
     SynEE.taupre, SynEE.taupost = tr.taupre, tr.taupost
 
-    # TODO ddcon
+    # todo ddcon changes done here
     if tr.ddcon_active:
         # this case works for istrct_active on and off
         sEI_src, sEI_tar = generate_dd_connectivity(np.array(GExc.x), np.array(GExc.y),
@@ -428,7 +422,7 @@ def run_net(tr):
     if tr.istdp_active:
         SynEI.taupre, SynEI.taupost = tr.taupre_EI, tr.taupost_EI
 
-    # TODO ddcon
+    # todo ddcon changes done here
     # sIE_src, sIE_tar = generate_connections(tr.N_i, tr.N_e, tr.p_ie)
     # sII_src, sII_tar = generate_connections(tr.N_i, tr.N_i, tr.p_ii, same=True)
     sIE_src, sIE_tar = generate_dd_connectivity(np.array(GInh.x), np.array(GInh.y),
@@ -620,7 +614,7 @@ def run_net(tr):
                               name='get_active_synapse_count')
     sum_connection.connect()
     if tr.ddcon_active:
-        sum_connection.NSyn = len(sEE_src)  # todo ddcon max number of EE synapses
+        sum_connection.NSyn = len(sEE_src)  # todo ddcon changes done here - max number of EE synapses
     else:
         sum_connection.NSyn = tr.N_e * (tr.N_e - 1)  # maximum number of EE synapses
 
@@ -648,7 +642,7 @@ def run_net(tr):
                                      name='get_active_synapse_count_EI')
         sum_connection_EI.connect()
         if tr.ddcon_active:
-            sum_connection_EI.NSyn = len(sEI_src)  # todo ddcon max number of EI synapses
+            sum_connection_EI.NSyn = len(sEI_src)  # todo ddcon changes done here - ddcon max number of EI synapses
         else:
             sum_connection_EI.NSyn = tr.N_e * tr.N_i
 
@@ -765,7 +759,7 @@ def run_net(tr):
 
             SynEE_a_dt = T / tr.synee_a_nrecpoints
 
-    # todo ddcon record only created synapses
+    # todo ddcon changes done here - ddcon record only existing synapses
     if tr.ddcon_active:
         record_range_ee = range(len(sEE_src))
     else:
@@ -776,7 +770,7 @@ def run_net(tr):
                            when='end', order=100)
 
     if tr.istrct_active:
-        record_range = range(tr.N_e * tr.N_i)
+        record_range = range(tr.N_e * tr.N_i)  # todo ddcon this I need to fix!
     else:
         record_range = range(len(sEI_src))
 
@@ -805,7 +799,7 @@ def run_net(tr):
 
     if (tr.synEEdynrec and
             (2 * tr.syndynrec_npts * tr.syndynrec_dt < tr.sim.T2)):
-        # todo ddcon changed range
+        # todo ddcon changes done here - changed range, record only existing synapses
         SynEE_dynrec = StateMonitor(SynEE, ['a'],
                                     record=record_range_ee,
                                     dt=tr.syndynrec_dt,
