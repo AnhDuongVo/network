@@ -1,0 +1,7 @@
+# use existing anaconda3 image as base
+FROM continuumio/anaconda3 
+WORKDIR /usr/src/network_app
+ADD environment.yml /tmp/environment.yml
+RUN conda env create -f /tmp/environment.yml
+# Copy the rest of your app's source code from your host to your image filesystem.
+COPY . .

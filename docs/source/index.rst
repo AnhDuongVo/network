@@ -31,6 +31,12 @@ ExcInhBal Analysis Package
 .. automodule:: analysis.multisim.multisimplotrunner
    :members:
 
+ExcInhBal Network Features
+==========================
+
+.. automodule:: net.network_features
+    :members:
+
 Indices and tables
 ==================
 

@@ -11,6 +11,7 @@ from analysis.methods.process_turnover_statistics import get_insert_and_prune_co
 from analysis.srvprb_all import srvprb_all_figure
 from analysis.srvprb_EE import srvprb_EE_figure
 from analysis.srvprb_EI import srvprb_EI_figure
+from analysis.branching_ratio import branching_ratio_figure
 
 from analysis.methods.resample_dA import resample_spk_register, \
                                          resample_scl_deltas
@@ -222,6 +223,10 @@ def post_process_scl_rec(tr):
 
 def post_process(tr):
 
+    branching_ratio_figure(f'builds/{tr.v_idx:04d}')
+    post_process_stdp_rec(tr)
+    post_process_scl_rec(tr)
+
     if tr.turnover_rec:
 
         if tr.strct_active:
@@ -235,9 +240,8 @@ def post_process(tr):
             post_process_per_neuron_turnover_counts(tr, 'EI')
 
         
-    srvprb_EE_figure('builds/%.4d'%(tr.v_idx))
-    srvprb_EI_figure('builds/%.4d'%(tr.v_idx))
-    srvprb_all_figure('builds/%.4d'%(tr.v_idx))
+        srvprb_EE_figure('builds/%.4d'%(tr.v_idx))
+        srvprb_EI_figure('builds/%.4d'%(tr.v_idx))
+        srvprb_all_figure('builds/%.4d'%(tr.v_idx))
 
-    post_process_stdp_rec(tr)
-    post_process_scl_rec(tr)
+
