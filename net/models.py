@@ -79,6 +79,8 @@ synEE_noise_mult  = '''da/dt = syn_noise_active*syn_active*a*syn_sigma**0.5*xi :
                        syn_sigma : 1/second (shared)'''
 synEE_noise_kesten = '''da/dt = syn_noise_active*syn_active * ( (syn_kesten_mu_epsilon_1 * (syn_kesten_factor*a) + syn_kesten_mu_eta) + (syn_kesten_var_epsilon_1 * (syn_kesten_factor*a)**2 + syn_kesten_var_eta)**0.5 * xi_kesten) / syn_kesten_factor : 1
                         '''
+synEI_noise_kesten = '''da/dt = syn_noise_active*syn_active * ( (syn_kesten_mu_epsilon_1_i * (syn_kesten_factor*a) + syn_kesten_mu_eta_i) + (syn_kesten_var_epsilon_1_i * (syn_kesten_factor*a)**2 + syn_kesten_var_eta_i)**0.5 * xi_kesten) / syn_kesten_factor : 1
+                        '''
 
 
 synEE_mod = '''            
@@ -101,6 +103,7 @@ synEE_mod = '''
             stdp_rec_start : second (shared)
             stdp_rec_max   : second (shared)
 
+            amin : 1 (shared)
             amax : 1 (shared)
             '''
 
@@ -211,7 +214,7 @@ synEE_scaling = '''
                 '''
 
 synEI_scaling = '''
-                a = syn_active*clip(syn_EI_scale(a, iANormTar, AsumEI_post, eta_scaling, t, syn_active, scl_rec_start, scl_rec_max, i, j), amin, amax)
+                a = syn_active*clip(syn_EI_scale(a, iANormTar, AsumEI_post, eta_iscaling, t, syn_active, scl_rec_start, scl_rec_max, i, j), amin, amax)
                 '''
 
 

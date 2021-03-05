@@ -50,13 +50,28 @@ sigma_e = 0.5**0.5*mV
 sigma_i = 0.5**0.5*mV
 """memnoise σ for inhibitory neurons"""
 
+# very strong membrane noise
+strong_mem_noise_active = 0
+"""
+    Activate Poisson membrane noise, that can enable the post-synaptic neuron with one spike.
+    See also :meth:`net.network_features.strong_noise`
+"""
+strong_mem_noise_rate = 1/(10*second)
+"""
+    Rate of strong Poisson membrane noise.
+"""
+
 # synaptic delay
 syn_delay_active = 0
 """ enables pre-synaptic delays """
 synEE_delay = 4.7*ms
 """ for EE synapses, according to biexp peak time with standard params """
+synEE_delay_windowsize = 0*ms
+""" to use uniform delay distribution, set this to the width of the distribution """
 synEI_delay = 4.25*ms
 """ for EI synapses, according to biexp peak time with standard params """
+synEI_delay_windowsize = 0*ms
+""" to use uniform delay distribution, set this to the width of the distribution """
 
 Vr_e = -60.*mV
 """initial V is drawn from Uniform(Vr_e, Vt_e)"""
@@ -93,6 +108,10 @@ Aminus = -0.00075
 amax = 2.0
 amin = 0.0
 """ Minimal value for synapses, applied on STDP & scaling events. """
+amin_i = -1.0
+""" Set to something >= 0 if should be different from amin """
+amax_i = -1.0
+""" Set to something >= 0 if should be different from amax """
 
 
 external_mode = 'memnoise'
@@ -178,6 +197,8 @@ iATotalMaxSingle = 0.0029  # iATotalMax/((Ni-1)*p_ei)
 sig_iATotalMax = 0.025
 syn_iscl_rec = 0
 """record inhibitory synaptic scaling (via CPP methods)"""
+eta_iscaling = -1.0
+""" Learning rate for normalization of EI connections. If `-1.0` it's set to same as :member:`eta_scaling`. """
 
 scl_mode = "constant"
 """ How the target for synaptic scaling is determined

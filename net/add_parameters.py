@@ -25,7 +25,9 @@ def add_params(tr):
     # synaptic delays
     tr.f_add_parameter("netw.config.syn_delay_active", prm.syn_delay_active)
     tr.f_add_parameter("netw.synEE_delay", prm.synEE_delay)
+    tr.f_add_parameter("netw.synEE_delay_windowsize", prm.synEE_delay_windowsize)
     tr.f_add_parameter("netw.synEI_delay", prm.synEI_delay)
+    tr.f_add_parameter("netw.synEI_delay_windowsize", prm.synEI_delay_windowsize)
     
     tr.f_add_parameter('netw.El',    prm.El)
     tr.f_add_parameter('netw.Ee',    prm.Ee)
@@ -77,18 +79,26 @@ def add_params(tr):
     tr.f_add_parameter('netw.syn_kesten_var_epsilon_1',  prm.syn_kesten_var_epsilon_1)
     tr.f_add_parameter('netw.syn_kesten_var_eta',  prm.syn_kesten_var_eta)
     tr.f_add_parameter('netw.syn_kesten_factor', prm.syn_kesten_factor)
+    tr.f_add_parameter('netw.syn_kesten_mu_epsilon_1_i',  prm.syn_kesten_mu_epsilon_1)
+    tr.f_add_parameter('netw.syn_kesten_mu_eta_i',  prm.syn_kesten_mu_eta)
+    tr.f_add_parameter('netw.syn_kesten_var_epsilon_1_i',  prm.syn_kesten_var_epsilon_1)
+    tr.f_add_parameter('netw.syn_kesten_var_eta_i',  prm.syn_kesten_var_eta)
 
 
     tr.f_add_parameter('netw.synEE_static',  mod.synEE_static)
     tr.f_add_parameter('netw.synEE_noise_add',  mod.synEE_noise_add)
     tr.f_add_parameter('netw.synEE_noise_mult',  mod.synEE_noise_mult)
     tr.f_add_parameter('netw.synEE_noise_kesten', mod.synEE_noise_kesten)
+    tr.f_add_parameter('netw.synEI_noise_kesten', mod.synEI_noise_kesten)
     tr.f_add_parameter('netw.synEE_scl_mod',  mod.synEE_scl_mod)
     tr.f_add_parameter('netw.synEI_scl_mod',  mod.synEI_scl_mod)
     tr.f_add_parameter('netw.synEE_scl_prop_mod',  mod.synEE_scl_prop_mod)
     tr.f_add_parameter('netw.synEI_scl_prop_mod',  mod.synEI_scl_prop_mod)
     tr.f_add_parameter('netw.scl_mode', prm.scl_mode)
-    
+
+    # very strong membrane noise
+    tr.f_add_parameter('netw.strong_mem_noise_active', prm.strong_mem_noise_active)
+    tr.f_add_parameter('netw.strong_mem_noise_rate', prm.strong_mem_noise_rate)
 
     # STDP
     tr.f_add_parameter('netw.config.stdp_active', prm.stdp_active)
@@ -98,6 +108,8 @@ def add_params(tr):
     tr.f_add_parameter('netw.Aminus',    prm.Aminus)
     tr.f_add_parameter('netw.amax',      prm.amax)
     tr.f_add_parameter('netw.amin',      prm.amin)
+    tr.f_add_parameter('netw.amin_i',    prm.amin_i)
+    tr.f_add_parameter('netw.amax_i',    prm.amax_i)
     tr.f_add_parameter('netw.synEE_rec',      prm.synEE_rec)
 
     # iSTDP
@@ -124,6 +136,7 @@ def add_params(tr):
     tr.f_add_parameter('netw.iATotalMaxSingle',  prm.iATotalMaxSingle)
     tr.f_add_parameter('netw.sig_iATotalMax',    prm.sig_iATotalMax)
     tr.f_add_parameter('netw.syn_iscl_rec',        prm.syn_iscl_rec)
+    tr.f_add_parameter('netw.eta_iscaling',       prm.eta_iscaling)
 
     # short-term depression
     tr.f_add_parameter('netw.config.std_active', prm.std_active)

@@ -1,7 +1,7 @@
 
 import sys, os, shutil, pickle, neo, scipy
 
-from . import models as mod
+from . import models as mod, network_features
 from .utils import generate_connections, generate_full_connectivity, \
                    generate_N_connections
 
@@ -27,6 +27,7 @@ from .cpp_methods import syn_scale, syn_EI_scale, \
                          record_turnover, record_turnover_EI, \
                          record_spk, record_spk_EI
 
+from . import workarounds
 
 def init_synapses(syn_type: str, tr: pypet.trajectory.Trajectory):
     """ Initialize synapses with weights and whether they are active or not
@@ -103,6 +104,8 @@ def run_net(tr):
     # variable names to simple variable names without namespace (ValueError if not unique)
     namespace = tr.netw.f_to_dict(short_names=True, fast_access=True)
     namespace['idx'] = tr.v_idx
+    if tr.eta_iscaling < 0:
+        namespace['eta_iscaling'] = tr.eta_scaling
 
     defaultclock.dt = tr.netw.sim.dt
 
@@ -245,7 +248,7 @@ def run_net(tr):
 
         elif tr.syn_noise_type == 'kesten':
             synEE_mod = f"{tr.synEE_mod}\n{tr.synEE_noise_kesten}"
-            synEI_mod = f"{tr.synEE_mod}\n{tr.synEE_noise_kesten}"
+            synEI_mod = f"{tr.synEE_mod}\n{tr.synEI_noise_kesten}"
 
 
     else:
@@ -369,6 +372,7 @@ def run_net(tr):
     SynEE.connect(i=sEE_src, j=sEE_tar)
     SynEE.syn_active = 0
     SynEE.taupre, SynEE.taupost = tr.taupre, tr.taupost
+    workarounds.synapse_resolve_dt_correctly(SynEE)
 
     if tr.istdp_active and tr.istrct_active:
         print('istrct active')
@@ -401,6 +405,8 @@ def run_net(tr):
 
     if tr.istdp_active:        
         SynEI.taupre, SynEI.taupost = tr.taupre_EI, tr.taupost_EI
+
+    workarounds.synapse_resolve_dt_correctly(SynEI)
 
         
     sIE_src, sIE_tar = generate_connections(tr.N_i, tr.N_e, tr.p_ie)
@@ -438,13 +444,17 @@ def run_net(tr):
     SynEE.syn_noise_active = 1
     print('Setting maximum EE weight threshold to ', tr.amax)
     SynEE.amax = tr.amax
+    SynEE.amin = tr.amin
 
     if tr.istdp_active:
         SynEI.insert_P = tr.insert_P_ei
         SynEI.p_inactivate = tr.p_inactivate_ei
         SynEI.stdp_active=1
         SynEI.amax = tr.amax
-    SynEE.syn_noise_active = 1
+
+    SynEI.amin = tr.amin_i if tr.amin_i >= 0 else tr.amin
+    SynEI.amax = tr.amax_i if tr.amax_i >= 0 else tr.amax
+    SynEI.syn_noise_active = 1
 
     # we use these variables later for initializing ANormTar/iANormTar if scaling mode is proportional
     syn_EE_active_init, syn_EE_weights_init = init_synapses('EE', tr)
@@ -453,8 +463,12 @@ def run_net(tr):
     SynEI.syn_active, SynEI.a = syn_EI_active_init, syn_EI_weights_init
 
     if tr.syn_delay_active:
-        SynEE.delay = tr.synEE_delay
-        SynEI.delay = tr.synEI_delay
+        shapeEE, shapeEI = syn_EE_active_init.shape, len(sEI_src)
+        ee_delays = network_features.synapse_delays(tr.synEE_delay, tr.synEE_delay_windowsize, SynEE, shapeEE)
+        ei_delays = network_features.synapse_delays(tr.synEI_delay, tr.synEI_delay_windowsize, SynEI, shapeEI)
+
+        tr.f_add_result("sEE_delays", ee_delays)
+        tr.f_add_result("sEI_delays", ei_delays)
 
     # recording of stdp in T4
     SynEE.stdp_rec_start = tr.T1+tr.T2+tr.T3
@@ -634,7 +648,8 @@ def run_net(tr):
 
             netw_objects.extend([sum_target_EI, sum_connection_EI, growth_updater_EI])
 
-
+    if tr.strong_mem_noise_active:
+        netw_objects.extend(network_features.strong_mem_noise(tr, GExc, GInh))
 
             
     # -------------- recording ------------------        
@@ -895,7 +910,9 @@ def run_net(tr):
     if tr.istdp_active:
         SynEI.stdp_active=0
     SynEE.syn_noise_active = 0
-    SynEI.syn_noise_active = 0
+    if tr.istdp_active:
+        # otherwise we use a simplified model and don't have this parameter
+        SynEI.syn_noise_active = 0
 
     set_active(GExc_rate, GInh_rate)
     set_active(GExc_spks, GInh_spks)
