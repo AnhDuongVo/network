@@ -2,7 +2,7 @@ import sys, os, shutil, pickle, neo, scipy
 
 from . import models as mod
 from .utils import generate_connections, generate_full_connectivity, \
-    generate_N_connections, generate_dd_connectivity
+    generate_N_connections, generate_dd_connectivity, generate_dd_connectivity2
 
 import numpy as np
 import pypet
@@ -46,7 +46,8 @@ def init_synapses(syn_type: str, tr: pypet.trajectory.Trajectory, numb_syn: int)
         if syn_type == "EE":
             # make randomly chosen synapses active at beginning
             if tr.ddcon_active:
-                rs = np.random.uniform(size=numb_syn)
+                # rs = np.random.uniform(size=numb_syn)
+                rs = np.zeros(numb_syn)
             else:
                 rs = np.random.uniform(size=tr.N_e * (tr.N_e - 1))
             initial_active = (rs < tr.p_ee).astype('int')
@@ -373,8 +374,9 @@ def run_net(tr):
 
     # todo ddcon changes done here
     if tr.ddcon_active:
-        sEE_src, sEE_tar = generate_dd_connectivity(np.array(GExc.x), np.array(GExc.y),
-                                                    np.array(GExc.x), np.array(GExc.y), tr.half_width)
+        sEE_src, sEE_tar = generate_dd_connectivity2(np.array(GExc.x), np.array(GExc.y),
+                                                    np.array(GExc.x), np.array(GExc.y),
+                                                    tr.half_width, sparseness=0.15)
         # todo ddcon brian2 style can be used as well, need to figure out nice way to get source/target array from it
         # SynEE.connect(condition='i!=j', p='exp(-((x_pre-x_post)**2+(y_pre-y_post)**2)/(2*(200.0*um)**2))')
     else:
@@ -387,8 +389,9 @@ def run_net(tr):
     # todo ddcon changes done here
     if tr.ddcon_active:
         # this case works for istrct_active on and off
-        sEI_src, sEI_tar = generate_dd_connectivity(np.array(GExc.x), np.array(GExc.y),
-                                                    np.array(GInh.x), np.array(GInh.y), tr.half_width, same=False)
+        sEI_src, sEI_tar = generate_dd_connectivity2(np.array(GExc.x), np.array(GExc.y),
+                                                    np.array(GInh.x), np.array(GInh.y),
+                                                    tr.half_width, same=False, sparseness=0.5)
         SynEI.connect(i=sEI_src, j=sEI_tar)
         SynEI.syn_active = 0
     else:
@@ -425,13 +428,13 @@ def run_net(tr):
     # todo ddcon changes done here
     # sIE_src, sIE_tar = generate_connections(tr.N_i, tr.N_e, tr.p_ie)
     # sII_src, sII_tar = generate_connections(tr.N_i, tr.N_i, tr.p_ii, same=True)
-    sIE_src, sIE_tar = generate_dd_connectivity(np.array(GInh.x), np.array(GInh.y),
-                                                np.array(GExc.x), np.array(GExc.y),
-                                                tr.half_width, same=False) if tr.ddcon_active \
+    sIE_src, sIE_tar = generate_dd_connectivity2(np.array(GInh.x), np.array(GInh.y),
+                                                 np.array(GExc.x), np.array(GExc.y),
+                                                 tr.half_width, same=False, sparseness=0.15) if tr.ddcon_active \
         else generate_connections(tr.N_i, tr.N_e, tr.p_ie)
-    sII_src, sII_tar = generate_dd_connectivity(np.array(GInh.x), np.array(GInh.y),
-                                                np.array(GInh.x), np.array(GInh.y),
-                                                tr.half_width) if tr.ddcon_active \
+    sII_src, sII_tar = generate_dd_connectivity2(np.array(GInh.x), np.array(GInh.y),
+                                                 np.array(GInh.x), np.array(GInh.y),
+                                                 tr.half_width, sparseness=0.5) if tr.ddcon_active \
         else generate_connections(tr.N_i, tr.N_i, tr.p_ii, same=True)
 
     SynIE.connect(i=sIE_src, j=sIE_tar)
@@ -477,6 +480,12 @@ def run_net(tr):
     syn_EI_active_init, syn_EI_weights_init = init_synapses('EI', tr, len(sEI_src))
     SynEE.syn_active, SynEE.a = syn_EE_active_init, syn_EE_weights_init
     SynEI.syn_active, SynEI.a = syn_EI_active_init, syn_EI_weights_init
+
+    # todo REMOVE ddcon changes done here IP added for debug: store active EE src/tar arrays
+    # sEE_src_active = sEE_src[syn_EE_active_init == 1]
+    # sEE_tar_active = sEE_tar[syn_EE_active_init == 1]
+    # tr.f_add_result('sEE_src', sEE_src_active)
+    # tr.f_add_result('sEE_tar', sEE_tar_active)
 
     if tr.syn_delay_active:
         SynEE.delay = tr.synEE_delay

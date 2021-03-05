@@ -72,8 +72,9 @@ def generate_full_connectivity(Nsrc, Ntar=0, same=True):
 
 # distance dependent connectivity methods
 def gaussian(x, u, s):
-    # g = (2/np.sqrt(2*np.pi*s*s))*np.exp(-(x-u)*(x-u)/(2*s*s))  # gaussian
-    g = np.exp(-(x - u) * (x - u) / (2 * s * s))  # simpler gaussian
+    g_ = (2 / np.sqrt(2 * np.pi * s * s)) * np.exp(-(x - u) * (x - u) / (2 * s * s))  # gaussian used in Miner paper
+    g = g_ * 10 ** -4  # rescale to [0,1] range
+    # g = np.exp(-(x - u) * (x - u) / (2 * s * s))  # simpler gaussian
     return g
 
 
@@ -92,12 +93,63 @@ def make_grid(grid_size: int, n_neurons: int) -> np.ndarray:
     return grid_size * np.random.rand(n_neurons, 2)
 
 
+def generate_dd_connectivity2(tar_x, tar_y, src_x, src_y, g_halfwidth, same=True, sparseness=1):
+    """
+        Generates ordered source/target indexes arrays.
+        Self-connections and multiple connections between one target-source paar are omitted.
+        Implementation is based on Miner(2016).
+
+        :param tar_x: target pool x coordinates array (unitless)
+        :param tar_y: target pool y coordinates array (unitless)
+        :param src_x: source pool x coordinates array (unitless)
+        :param src_y: source pool x coordinates array (unitless)
+        :param g_halfwidth: gaussian half-width (microns)
+        :param same: True is source and target pools are the same, False otherwise
+        :param sparseness: connections sparseness, value from [0 1]
+        :return: source and target indexes arrays.
+        """
+    # calculate gaussian
+    n_tar = np.size(tar_x)
+    n_src = np.size(src_x)
+    p_ = np.zeros((n_src, n_tar))
+    for i in range(n_src):
+        for j in range(n_tar):
+            if not same or (same and not (i == j)):
+                dx = tar_x[j] - src_x[i]
+                dy = tar_y[j] - src_y[i]
+                p_[i, j] = gaussian(np.sqrt(dx ** 2 + dy ** 2), 0, np.array(g_halfwidth))
+
+    # calculate connections matrix and indexes arrays
+
+    # determine number of connections to create based on sparseness
+    n_new = int(round(n_src * n_tar * sparseness))  # IP: this includes self-connectiones!?
+
+    conn = np.zeros((n_src, n_tar))  # connectivity matrix
+    in_src = []  # list with source indexes
+    in_trg = []  # list with target indexes
+    for ii in range(n_new):
+        addition_allowed = False
+        new_i = np.random.randint(0, high=n_src)
+        new_j = np.random.randint(0, high=n_tar)
+        while not addition_allowed:
+            new_i = np.random.randint(0, high=n_src)
+            new_j = np.random.randint(0, high=n_tar)
+            if np.random.rand() < p_[new_i, new_j]:
+                if not new_i == new_j and conn[new_i, new_j] == 0:
+                    addition_allowed = True
+        conn[new_i, new_j] = 1
+        in_src.append(new_i)
+        in_trg.append(new_j)
+    return in_src, in_trg
+
+
 # todo boundary conditions, toroidal plane?
-def generate_dd_connectivity(tar_x, tar_y, src_x, src_y, g_halfwidth, same=True):
+def generate_dd_connectivity(tar_x, tar_y, src_x, src_y, g_halfwidth, same=True, sparseness=1):
     """
     Generates ordered source/target indexes arrays.
     Self-connections and multiple connections between one target-source paar are omitted.
     Implementation is based on Miner(2016).
+    todo edit description! this implementation is partly like in Miner
 
     :param tar_x: target pool x coordinates array (unitless)
     :param tar_y: target pool y coordinates array (unitless)
@@ -105,6 +157,7 @@ def generate_dd_connectivity(tar_x, tar_y, src_x, src_y, g_halfwidth, same=True)
     :param src_y: source pool x coordinates array (unitless)
     :param g_halfwidth: gaussian half-width (microns)
     :param same: True is source and target pools are the same, False otherwise
+    :param sparseness: connections sparseness, value from [0 1]
     :return: source and target indexes arrays.
     """
     # calculate gaussian
@@ -129,11 +182,28 @@ def generate_dd_connectivity(tar_x, tar_y, src_x, src_y, g_halfwidth, same=True)
                 in_src.append(i)
                 in_trg.append(j)
                 conn[i, j] = 1  # just indicate a connection, no weight set
-    return in_src, in_trg
+
+    # make only subset of connections active
+    if sparseness == 1:
+        print('sparseness is 1, all connections are active ')
+        in_src_active = np.array(in_src)
+        in_trg_active = np.array(in_trg)
+    else:
+        print('sparseness is ' + str(sparseness))
+        n_conn = int(np.size(in_src) * sparseness)
+        active_conn = np.random.choice([*range(np.size(in_src))], size=n_conn, replace=False)
+
+        in_src_arr = np.array(in_src)
+        in_trg_arr = np.array(in_trg)
+
+        in_src_active = in_src_arr[active_conn]
+        in_trg_active = in_trg_arr[active_conn]
+
+    return in_src_active, in_trg_active
 
 
 # todo deprecated, remove later
-def generate_dd_connectivity2(n_src):
+def generate_dd_connectivity_old(n_src):
     """
     :param n_src:
     :return:
