@@ -169,6 +169,11 @@ def run_net(tr):
         GExc.mu, GInh.mu = tr.mu_e, tr.mu_i
         GExc.sigma, GInh.sigma = tr.sigma_e, tr.sigma_i
 
+    if tr.Vt_distributed == 1:
+        GExc.Vt = np.random.normal(tr.Vt_e/mV, tr.Vt_e_sigma, tr.N_e) * mV
+        GInh.Vt = np.random.normal(tr.Vt_i/mV, tr.Vt_i_sigma, tr.N_i) * mV
+    else:
+        GExc.Vt, GInh.Vt = tr.Vt_e, tr.Vt_i
   
     GExc.Vt, GInh.Vt = tr.Vt_e, tr.Vt_i
     GExc.V , GInh.V  = np.random.uniform(tr.Vr_e/mV, tr.Vt_e/mV,
@@ -378,9 +383,14 @@ def run_net(tr):
 
     #other simple
     conductance_prefix = "" if tr.syn_cond_mode == "exp" else "x"
-    SynIE = Synapses(target=GInh, source=GExc, on_pre=f'{conductance_prefix}ge_post += a_ie', namespace=namespace)
-    SynII = Synapses(target=GInh, source=GInh, on_pre=f'{conductance_prefix}gi_post += a_ii', namespace=namespace)
-
+    if tr.a_distributed == 1:
+        SynIE = Synapses(target=GInh, source=GExc, model = 'a_ie : 1',on_pre='ge_post += a_ie',
+                     namespace=namespace)
+        SynII = Synapses(target=GInh, source=GInh, model = 'a_ii : 1', on_pre='gi_post += a_ii',
+                     namespace=namespace)
+    else:    
+        SynIE = Synapses(target=GInh, source=GExc, on_pre=f'{conductance_prefix}ge_post += a_ie', namespace=namespace)
+        SynII = Synapses(target=GInh, source=GInh, on_pre=f'{conductance_prefix}gi_post += a_ii', namespace=namespace)
         
     sEE_src, sEE_tar = generate_full_connectivity(tr.N_e, same=True)
     SynEE.connect(i=sEE_src, j=sEE_tar)
@@ -429,6 +439,10 @@ def run_net(tr):
 
     SynIE.connect(i=sIE_src, j=sIE_tar)
     SynII.connect(i=sII_src, j=sII_tar)
+    
+    if tr.a_distributed == 1:
+        SynIE.a_ie = np.random.lognormal(tr.a_ie_mean, tr.a_ie_sigma,len(sIE_src))
+        SynII.a_ii = np.random.lognormal(tr.a_ii_mean, tr.a_ii_sigma,len(sII_src))
 
     tr.f_add_result('sEE_src', sEE_src)
     tr.f_add_result('sEE_tar', sEE_tar)
@@ -438,7 +452,6 @@ def run_net(tr):
     tr.f_add_result('sEI_tar', sEI_tar)
     tr.f_add_result('sII_src', sII_src)
     tr.f_add_result('sII_tar', sII_tar)
-
 
     if tr.syn_noise:
         if tr.syn_noise_type != "kesten":

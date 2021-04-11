@@ -90,6 +90,8 @@ synEI_delay = 4.25*ms
 synEI_delay_windowsize = 0*ms
 """ to use uniform delay distribution, set this to the width of the distribution """
 
+Vt_distributed = 1
+"""normally distributed Vt or same value for all Vt"""
 Vr_e = -60.*mV
 """initial V is drawn from Uniform(Vr_e, Vt_e)"""
 Vr_i = -60.*mV
@@ -98,6 +100,11 @@ Vt_e = -50.*mV
 """initial Vt for excitatory neurons"""
 Vt_i = -51.*mV
 """initial Vt for inhibitory neurons"""
+Vt_e_sigma = 0.1
+"""sigma of normal distribution of Vt_e for excitatory neurons"""
+Vt_i_sigma = 0.3
+"""sigma of normal distribution of Vt_i for excitatory neurons"""
+
 
 # Firing Rate Homeostasis: Intrinsic Plasticity
 ip_active = 0
@@ -109,6 +116,8 @@ h_IP_i = 8 * Hz
 eta_IP = 0.1 * mV
 """ Threshold change rate per spike """
 
+a_distributed = 1
+"""lognormally distributed weights or same value for all weights"""
 ascale = 1.0
 a_ee = 0.005
 """initial activity of EE synapses"""
@@ -118,6 +127,14 @@ a_ei = 0.005
 """initial activity of EI synapses"""
 a_ii = 0.005
 """initial activity of II synapses"""
+a_ie_mean = -1
+"""initial mean activity in case of lognormally distributed IE weights"""
+a_ii_mean = -1
+"""initial mean activity in case of lognormally distributed II weights"""
+a_ie_sigma = 1.4
+"""initial mean activity in case of lognormally distributed IE weights"""
+a_ii_sigma = 1.4
+"""initial mean activity in case of lognormally distributed II weights"""
 
 p_ee = 0.15
 """initial probability for synapse connection being active"""
